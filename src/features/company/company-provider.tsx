@@ -14,6 +14,7 @@ interface CompanyContextValue {
   companyId: string | null;
   isLoading: boolean;
   error: Error | null;
+  retry: () => void;
   selectCompany: (companyId: string) => void;
   hasPermission: (...permissions: Permission[]) => boolean;
   companyPath: (path: string) => string;
@@ -32,6 +33,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     enabled: status === "authenticated",
     staleTime: 60_000,
   });
+  const { refetch } = query;
 
   const membership = useMemo(
     () => query.data?.find(({ company }) => company.id === selectedId) ?? query.data?.[0] ?? null,
@@ -54,6 +56,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
       companyId: membership?.company.id ?? null,
       isLoading: query.isLoading || (Boolean(query.data?.length) && !membership),
       error: query.error,
+      retry: () => void refetch(),
       selectCompany: (companyId) => {
         if (!query.data?.some(({ company }) => company.id === companyId)) return;
         window.localStorage.setItem(STORAGE_KEY, companyId);
@@ -66,7 +69,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         return `/companies/${membership.company.id}${path.startsWith("/") ? path : `/${path}`}`;
       },
     }),
-    [membership, permissionSet, query.data, query.error, query.isLoading],
+    [membership, permissionSet, query.data, query.error, query.isLoading, refetch],
   );
 
   return <CompanyContext.Provider value={value}>{children}</CompanyContext.Provider>;

@@ -31,6 +31,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ErrorNotice } from "@/components/shared/data-states";
 import { CompanySetup } from "@/features/company/company-setup";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useCompany } from "@/features/company/company-provider";
@@ -234,7 +235,13 @@ function UserMenu({ collapsed }: { collapsed?: boolean }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { memberships, isLoading } = useCompany();
+  const { memberships, isLoading, error, retry } = useCompany();
+  if (!isLoading && error)
+    return (
+      <main className="mx-auto flex min-h-screen max-w-2xl items-center p-6">
+        <ErrorNotice error={error} retry={retry} />
+      </main>
+    );
   if (!isLoading && memberships.length === 0) return <CompanySetup />;
   return (
     <div

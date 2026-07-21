@@ -29,6 +29,8 @@ type ApiRequestOptions = RequestInit & {
   skipAuthRefresh?: boolean;
 };
 
+const CLIENT_REQUEST_TIMEOUT_MS = 15_000;
+
 async function refreshAccessToken() {
   if (!refreshPromise) {
     refreshPromise = fetch("/api/session/refresh", {
@@ -62,12 +64,20 @@ function requestHeaders(options: ApiRequestOptions) {
 }
 
 async function send(path: string, options: ApiRequestOptions) {
-  return fetch(`/api/backend${path.startsWith("/") ? path : `/${path}`}`, {
-    ...options,
-    headers: requestHeaders(options),
-    credentials: "same-origin",
-    cache: "no-store",
-  });
+  try {
+    return await fetch(`/api/backend${path.startsWith("/") ? path : `/${path}`}`, {
+      ...options,
+      headers: requestHeaders(options),
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: options.signal ?? AbortSignal.timeout(CLIENT_REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name)) {
+      throw new ApiError(504, "REQUEST_TIMEOUT", "The server took too long to respond. Try again.");
+    }
+    throw error;
+  }
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
