@@ -14,7 +14,6 @@ const FORWARDED_REQUEST_HEADERS = [
 const FORWARDED_RESPONSE_HEADERS = [
   "cache-control",
   "content-disposition",
-  "content-length",
   "content-type",
   "etag",
   "location",
