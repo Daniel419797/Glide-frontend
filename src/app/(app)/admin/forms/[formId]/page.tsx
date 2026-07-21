@@ -12,6 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  fieldsToSchema,
+  FormQuestionBuilder,
+  schemaToFields,
+  WorkflowBuilder,
+} from "@/components/forms/visual-builders";
 import { useCompany } from "@/features/company/company-provider";
 import { apiRequest } from "@/lib/api-client";
 import type { FormRecord, WorkflowStep, WorkflowTemplate } from "@/types/backend";
@@ -41,8 +47,8 @@ function FormEditor({
   const queryClient = useQueryClient();
   const [name, setName] = useState(form.name);
   const [description, setDescription] = useState(form.description ?? "");
-  const [schemaText, setSchemaText] = useState(JSON.stringify(form.schema, null, 2));
-  const [stepsText, setStepsText] = useState(JSON.stringify(DEFAULT_STEPS, null, 2));
+  const [fields, setFields] = useState(() => schemaToFields(form.schema));
+  const [steps, setSteps] = useState<WorkflowStep[]>(DEFAULT_STEPS);
   const save = useMutation({
     mutationFn: () =>
       apiRequest(companyPath(`/forms/${formId}`), {
@@ -50,28 +56,26 @@ function FormEditor({
         body: JSON.stringify({
           name,
           description: description || null,
-          schema: JSON.parse(schemaText),
+          schema: fieldsToSchema(fields),
         }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-form", companyId, formId] });
       toast.success("Form saved");
     },
-    onError: (error) =>
-      toast.error(error instanceof SyntaxError ? "Schema must be valid JSON" : error.message),
+    onError: (error) => toast.error(error.message),
   });
   const createWorkflow = useMutation({
     mutationFn: () =>
       apiRequest<WorkflowTemplate>(companyPath(`/forms/${formId}/workflows`), {
         method: "POST",
-        body: JSON.stringify({ steps: JSON.parse(stepsText) }),
+        body: JSON.stringify({ steps }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-form", companyId, formId] });
       toast.success("Draft workflow created");
     },
-    onError: (error) =>
-      toast.error(error instanceof SyntaxError ? "Steps must be valid JSON" : error.message),
+    onError: (error) => toast.error(error.message),
   });
   const publish = useMutation({
     mutationFn: (workflowId: string) =>
@@ -88,7 +92,7 @@ function FormEditor({
       <div className="border-b px-4 py-6 sm:px-6 lg:px-7">
         <PageHeader
           title={form.name}
-          description="Edit the JSON Schema and publish immutable workflow versions."
+          description="Build the questions requesters answer and the approval path each submission follows."
           actions={
             <Button disabled={save.isPending} onClick={() => save.mutate()}>
               {save.isPending ? "Saving..." : "Save form"}
@@ -117,16 +121,7 @@ function FormEditor({
               onChange={(event) => setDescription(event.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="form-schema">JSON Schema</Label>
-            <Textarea
-              id="form-schema"
-              className="min-h-72 font-mono text-xs"
-              spellCheck={false}
-              value={schemaText}
-              onChange={(event) => setSchemaText(event.target.value)}
-            />
-          </div>
+          <FormQuestionBuilder fields={fields} onChange={setFields} />
           <div className="flex items-center justify-between rounded-md border p-3">
             <Label htmlFor="form-active">Available to requesters</Label>
             <Switch
@@ -168,15 +163,8 @@ function FormEditor({
               </div>
             ))}
           </div>
-          <div className="space-y-2 border-t pt-5">
-            <Label htmlFor="workflow-steps">New workflow steps</Label>
-            <Textarea
-              id="workflow-steps"
-              className="min-h-72 font-mono text-xs"
-              spellCheck={false}
-              value={stepsText}
-              onChange={(event) => setStepsText(event.target.value)}
-            />
+          <div className="space-y-3 border-t pt-5">
+            <WorkflowBuilder steps={steps} onChange={setSteps} />
             <Button
               variant="outline"
               disabled={createWorkflow.isPending}
