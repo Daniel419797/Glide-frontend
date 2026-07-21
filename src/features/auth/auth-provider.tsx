@@ -20,6 +20,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const SESSION_REQUEST_TIMEOUT_MS = 15_000;
 
 async function refreshSession() {
   const response = await fetch("/api/session/refresh", {
@@ -27,6 +28,7 @@ async function refreshSession() {
     credentials: "same-origin",
     headers: { accept: "application/json" },
     cache: "no-store",
+    signal: AbortSignal.timeout(SESSION_REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error("Session unavailable");
   const body = (await response.json()) as { data: { accessToken: string } };
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       credentials: "same-origin",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(SESSION_REQUEST_TIMEOUT_MS),
     });
     const body = (await response.json().catch(() => null)) as {
       data?: { accessToken: string; profile: SessionProfile };
