@@ -1,25 +1,27 @@
 type Theme = "dark" | "light";
-interface TC { bg: string; node: string; nodeDim: string; conn: string; glow: string; label: string }
+interface TC { bg: string; node: string; nodeDim: string; conn: string; glow: string; label: string; guide: string }
 const THEMES: Record<Theme, TC> = {
-  dark: { bg: "#0a0f1a", node: "#5b9bd5", nodeDim: "#3a7ab8", conn: "#2a5a90", glow: "#4a8fd4", label: "#ffffff" },
-  light: { bg: "#f0f4f8", node: "#173E69", nodeDim: "#2a6cb0", conn: "#8aaed4", glow: "#2a5a90", label: "#ffffff" },
+  dark: { bg: "#0a0f1a", node: "#5b9bd5", nodeDim: "#3a7ab8", conn: "#2a5a90", glow: "#4a8fd4", label: "#ffffff", guide: "#4ade80" },
+  light: { bg: "#f0f4f8", node: "#173E69", nodeDim: "#2a6cb0", conn: "#8aaed4", glow: "#2a5a90", label: "#ffffff", guide: "#16a34a" },
 };
-const LINK = 140, WR = 22, GR = 32, STEP = 4, TICK = 500;
-interface DN { x: number; y: number; r: number; ph: number; ps: number }
+const LINK = 140, WR = 22, GR = 32, STEP = 4;
+interface DN { x: number; y: number; r: number; ph: number; ps: number; lastMove: number; interval: number }
 interface SN { lx: number; ly: number; x: number; y: number; label: string; r: number; guide: boolean; target?: string; pi: number }
 const SD: { lx: number; ly: number; label: string; r: number; guide: boolean; target?: string }[] = [
-  { lx: 0.03, ly: 0.04, label: "Submit", r: WR, guide: false },
-  { lx: 0.03, ly: 0.09, label: "Review", r: WR, guide: false },
-  { lx: 0.03, ly: 0.14, label: "Manager Approval", r: WR, guide: false },
-  { lx: 0.03, ly: 0.19, label: "Approved", r: WR, guide: false },
-  { lx: 0.03, ly: 0.24, label: "Complete", r: WR, guide: false },
-  { lx: 0.10, ly: 0.06, label: "Escalate", r: WR, guide: false },
-  { lx: 0.92, ly: 0.08, label: "Get Started", r: GR, guide: true, target: "/register" },
-  { lx: 0.92, ly: 0.22, label: "Features", r: GR, guide: true, target: "#features" },
-  { lx: 0.92, ly: 0.38, label: "How It Works", r: GR, guide: true, target: "#how-it-works" },
+  { lx: 0.08, ly: 0.04, label: "Submit", r: WR, guide: false },
+  { lx: 0.90, ly: 0.04, label: "Review", r: WR, guide: false },
+  { lx: 0.04, ly: 0.14, label: "Manager Approval", r: WR, guide: false },
+  { lx: 0.92, ly: 0.12, label: "Approved", r: WR, guide: false },
+  { lx: 0.08, ly: 0.22, label: "Complete", r: WR, guide: false },
+  { lx: 0.90, ly: 0.22, label: "Escalate", r: WR, guide: false },
+  { lx: 0.92, ly: 0.12, label: "Explore Features", r: GR, guide: true, target: "#features" },
+  { lx: 0.92, ly: 0.24, label: "How It Works", r: GR, guide: true, target: "#how-it-works" },
+  { lx: 0.92, ly: 0.40, label: "See the Process", r: GR, guide: true, target: "#walkthrough" },
+  { lx: 0.92, ly: 0.55, label: "View Pricing", r: GR, guide: true, target: "#pricing" },
+  { lx: 0.92, ly: 0.72, label: "Get Started", r: GR, guide: true, target: "/register" },
 ];
 const PC = [["Submit", "Review", "Manager Approval", "Approved", "Complete"], ["Submit", "Escalate", "Manager Approval"]];
-const GS = ["Features", "How It Works"];
+const GS = ["Explore Features", "How It Works", "See the Process", "View Pricing"];
 class ParticleEngine {
   private cvs: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
@@ -35,7 +37,6 @@ class ParticleEngine {
   private w = 0;
   private h = 0;
   private rm = false;
-  private lt = 0;
   private gp: { path: number[]; p: number; cb?: () => void } | null = null;
   init(canvas: HTMLCanvasElement, theme: Theme) {
     this.cvs = canvas; this.ctx = canvas.getContext("2d")!; this.theme = theme;
@@ -48,7 +49,10 @@ class ParticleEngine {
   private buildNodes() {
     const c = Math.max(60, Math.floor((this.w * this.h) / 4000));
     this.dns = [];
-    for (let i = 0; i < c; i++) { const r = 2 + Math.random() * 2.5; this.dns.push({ x: Math.random() * this.w, y: Math.random() * this.h, r, ph: Math.random() * Math.PI * 2, ps: 5 * Math.PI * 2 * r }); }
+    for (let i = 0; i < c; i++) {
+      const r = 2 + Math.random() * 2.5;
+      this.dns.push({ x: Math.random() * this.w, y: Math.random() * this.h, r, ph: Math.random() * Math.PI * 2, ps: 5 * Math.PI * 2 * r, lastMove: 0, interval: 800 + Math.random() * 1700 });
+    }
     this.sns = SD.map((d) => ({ ...d, x: d.lx * this.w, y: d.ly * this.h, pi: PC.findIndex((p) => p.includes(d.label)) }));
     this.all = [...this.dns, ...this.sns];
     this.buildAdj();
@@ -109,27 +113,35 @@ class ParticleEngine {
     return null;
   }
   setTheme(theme: Theme) { this.theme = theme; if (!this.running) this.draw(); }
-  private loop = () => {
-    if (!this.running) return;
-    const now = performance.now();
-    if (now - this.lt >= TICK) { this.repulse(); this.lt = now; }
-    if (this.gp) { this.gp.p += 0.02; if (this.gp.p >= 1) { this.gp.cb?.(); this.gp = null; } }
-    for (const d of this.dns) d.ph += 0.018;
-    this.draw();
-    this.raf = requestAnimationFrame(this.loop);
-  };
-  private repulse() {
+  private tick(now: number) {
+    let changed = false;
     for (const d of this.dns) {
+      if (now - d.lastMove < d.interval) continue;
       let fx = 0, fy = 0;
       for (const o of this.all) {
         if (o === d) continue;
         const dx = d.x - o.x, dy = d.y - o.y, dist = Math.hypot(dx, dy);
         if (dist < d.ps && dist > 0.1) { const f = (d.ps - dist) / d.ps; fx += (dx / dist) * f; fy += (dy / dist) * f; }
       }
-      if (fx !== 0 || fy !== 0) { const m = Math.hypot(fx, fy); d.x += (fx / m) * STEP; d.y += (fy / m) * STEP; d.x = Math.max(d.r, Math.min(this.w - d.r, d.x)); d.y = Math.max(d.r, Math.min(this.h - d.r, d.y)); }
+      if (fx !== 0 || fy !== 0) {
+        const m = Math.hypot(fx, fy);
+        d.x += (fx / m) * STEP; d.y += (fy / m) * STEP;
+        d.x = Math.max(d.r, Math.min(this.w - d.r, d.x)); d.y = Math.max(d.r, Math.min(this.h - d.r, d.y));
+        changed = true;
+      }
+      d.lastMove = now;
+      d.interval = 800 + Math.random() * 1700;
     }
-    this.all = [...this.dns, ...this.sns]; this.buildAdj();
+    if (changed) { this.all = [...this.dns, ...this.sns]; this.buildAdj(); }
   }
+  private loop = () => {
+    if (!this.running) return;
+    this.tick(performance.now());
+    if (this.gp) { this.gp.p += 0.02; if (this.gp.p >= 1) { this.gp.cb?.(); this.gp = null; } }
+    for (const d of this.dns) d.ph += 0.018;
+    this.draw();
+    this.raf = requestAnimationFrame(this.loop);
+  };
   private draw() {
     if (!this.ctx) return;
     const ctx = this.ctx, tc = THEMES[this.theme];
@@ -158,11 +170,12 @@ class ParticleEngine {
   }
   private drawSN(ctx: CanvasRenderingContext2D, s: SN, tc: TC) {
     const hov = this.mouse.on && Math.hypot(s.x - this.mouse.x, s.y - this.mouse.y) < s.r + 20;
+    const fill = s.guide ? tc.guide : tc.node;
     const p = Math.sin(Date.now() * 0.002) * 0.5 + 0.5;
-    ctx.globalAlpha = (0.12 + p * 0.1) * (hov ? 3 : 1.5); ctx.fillStyle = tc.glow;
+    ctx.globalAlpha = (0.12 + p * 0.1) * (hov ? 3 : 1.5); ctx.fillStyle = s.guide ? tc.guide : tc.glow;
     ctx.beginPath(); ctx.arc(s.x, s.y, s.r + 16, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1; ctx.shadowColor = tc.glow; ctx.shadowBlur = hov ? 22 : 10;
-    ctx.fillStyle = tc.node; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1; ctx.shadowColor = s.guide ? tc.guide : tc.glow; ctx.shadowBlur = hov ? 22 : 10;
+    ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillStyle = "#fff"; ctx.globalAlpha = 0.95;
     ctx.font = `700 ${s.guide ? 12 : 11}px "Outfit", system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
