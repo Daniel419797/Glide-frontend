@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2Icon, FileCheck2Icon, RouteIcon, ShieldCheckIcon } from "lucide-react";
+import { ThemeToggle } from "@/components/landing/theme-toggle";
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
@@ -50,7 +51,10 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         </div>
         <p className="text-xs text-sidebar-foreground/45">Secure internal workflow management</p>
       </section>
-      <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+      <section className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <div className="absolute right-4 top-4 z-10">
+          <ThemeToggle />
+        </div>
         <div className="w-full max-w-[420px]">{children}</div>
       </section>
     </main>

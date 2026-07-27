@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ErrorNotice } from "@/components/shared/data-states";
+import { ThemeToggle } from "@/components/landing/theme-toggle";
 import { CompanySetup } from "@/features/company/company-setup";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useCompany } from "@/features/company/company-provider";
@@ -173,8 +174,9 @@ function Navigation({
           {adminItems.map(renderItem)}
         </>
       )}
-      <div className="mt-auto pt-4">
+      <div className="mt-auto flex items-center gap-1 pt-4">
         {renderItem({ label: "Profile", href: "/profile", icon: UserRoundIcon })}
+        <ThemeToggle />
       </div>
     </nav>
   );
@@ -280,7 +282,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Link href="/dashboard" className="text-lg font-semibold">
           Glide
         </Link>
-        <span className="size-10" />
+        <div className="flex items-center">
+          <ThemeToggle />
+          <span className="size-1" />
+        </div>
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent

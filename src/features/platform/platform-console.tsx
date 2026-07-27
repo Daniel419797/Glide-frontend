@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ActivityIcon, Building2Icon, LogOutIcon, UsersIcon } from "lucide-react";
+import { ActivityIcon, Building2Icon, LogOutIcon, UsersIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ErrorNotice, MetricSkeletonGrid, TableSkeleton } from "@/components/shared/data-states";
 import { PageHeader } from "@/components/shared/page-header";
@@ -30,6 +30,10 @@ type Operations = {
 export function PlatformConsole() {
   const { user, logout } = useAuth();
   const [search, setSearch] = useState("");
+  const [animEnabled, setAnimEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("glide:landing-animation") !== "off";
+  });
   const deferredSearch = useDeferredValue(search);
   const queryClient = useQueryClient();
   const operations = useQuery({
@@ -64,6 +68,12 @@ export function PlatformConsole() {
         { label: "Active users", value: operations.data.activeUsers, icon: UsersIcon },
       ]
     : [];
+  const toggleAnimation = () => {
+    const next = !animEnabled;
+    setAnimEnabled(next);
+    localStorage.setItem("glide:landing-animation", next ? "on" : "off");
+    toast.success(`Landing animation ${next ? "enabled" : "disabled"}`);
+  };
   if (!user?.platformRole) {
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
@@ -183,6 +193,30 @@ export function PlatformConsole() {
             </table>
           </div>
         )}
+      </section>
+      <section className="border-t p-4 sm:p-6 lg:p-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <SparklesIcon className="size-5 text-primary" />
+            <div>
+              <h2 className="text-sm font-semibold">Landing Page Animation</h2>
+              <p className="text-xs text-muted-foreground">
+                Toggle the particle network animation on the public landing page.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={animEnabled}
+            onClick={toggleAnimation}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${animEnabled ? "bg-primary" : "bg-muted"}`}
+          >
+            <span
+              className={`inline-block size-4 rounded-full bg-white shadow transition-transform ${animEnabled ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
       </section>
     </main>
   );
